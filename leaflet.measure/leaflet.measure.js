@@ -1,6 +1,7 @@
 L.Control.Measure = L.Control.extend({
 	options: {
-		position: 'topleft'
+		position: 'topleft',
+        measureUnit: 'm'
 	},
 
 	onAdd: function (map) {
@@ -10,6 +11,27 @@ L.Control.Measure = L.Control.extend({
 		this._createButton('&#8674;', 'Measure', 'leaflet-control-measure leaflet-bar-part leaflet-bar-part-top-and-bottom', container, this._toggleMeasure, this);
 
 		return container;
+	},
+	
+	// creates a line without user interaction
+	displayLine: function(latLngs) {
+		if (!this._measuring) {
+			this._toggleMeasure();
+			//this._startMeasuring();
+		}
+
+		for (index = 0; index < latLngs.length; ++index) {
+			var e = {latlng: latLngs[index]};
+			this._mouseClick(e);
+		}
+		this._finishPath();
+	},
+
+	// stops measure and clears lines
+	clearLines: function() {
+		if (this._measuring) {
+			this._toggleMeasure();
+		}
 	},
 
 	_createButton: function (html, title, className, container, fn, context) {
@@ -51,6 +73,8 @@ L.Control.Measure = L.Control.extend({
 			.on(this._map, 'click', this._mouseClick, this)
 			.on(this._map, 'dblclick', this._finishPath, this)
 			.on(document, 'keydown', this._onKeyDown, this);
+      
+		this._map.fire('measure:measurestart', { layerType: this.type });
 
 		if(!this._layerPaint) {
 			this._layerPaint = L.layerGroup().addTo(this._map);	
@@ -69,6 +93,8 @@ L.Control.Measure = L.Control.extend({
 			.off(this._map, 'mousemove', this._mouseMove, this)
 			.off(this._map, 'click', this._mouseClick, this)
 			.off(this._map, 'dblclick', this._mouseClick, this);
+
+    	this._map.fire('measure:measurestop', { layerType: this.type });
 
 		if(this._doubleClickZoom) {
 			this._map.doubleClickZoom.enable();
@@ -114,6 +140,8 @@ L.Control.Measure = L.Control.extend({
 		if(!e.latlng) {
 			return;
 		}
+		
+		this._points.push(e.latlng);
 
 		// If we have a tooltip, update the distance and create a new tooltip, leaving the old one exactly where it is (i.e. where the user has clicked)
 		if(this._lastPoint && this._tooltip) {
@@ -177,6 +205,13 @@ L.Control.Measure = L.Control.extend({
 			this._layerPaint.removeLayer(this._layerPaintPathTemp);
 		}
 
+		this._map.fire('measure:finishedpath', { layerType: this.type , points: this._points, measureUnit: this.options.measureUnit});
+
+		//clear _points
+		if (this._points) {
+			this._points.length=0;
+		}
+
 		// Reset everything
 		this._restartPath();
 	},
@@ -206,19 +241,49 @@ L.Control.Measure = L.Control.extend({
 	},
 
 	_updateTooltipDistance: function(total, difference) {
-		var totalRound = this._round(total),
-			differenceRound = this._round(difference);
+		var totalRound;
+		var differenceRound;
+		var measureUnit = this.options.measureUnit;
 
-		var text = '<div class="leaflet-measure-tooltip-total">' + totalRound + ' nm</div>';
-		if(differenceRound > 0 && totalRound != differenceRound) {
-			text += '<div class="leaflet-measure-tooltip-difference">(+' + differenceRound + ' nm)</div>';
+		//extensible option for multiple units
+		switch(measureUnit){
+			case "nm":  
+				total *= 0.00053996;
+				difference	*= 0.00053996;
+				break;
+			case "ft":
+				total *= 3.2808;
+				difference	*= 3.2808;
+				break;
+			case "yd":
+				total *=  1.0936;
+				difference	*=  1.0936;
+				break;
+			case "mi":
+				total *=  0.00062137;
+				difference	*=  0.00062137;
+				break;
+			case "km":
+				total /=  1000;
+				difference	/=  1000;
+				break;
+			case "m":
+				total /=1;
+				difference != 1;
+				break;
+			default:
+				console.error("Unit: "+measureUnit+" is not supportet by Leaflet.Measure");
+		}
+
+		totalRound = Math.round(total, 2);
+		differenceRound = Math.round(difference, 2);
+
+		var text = '<div class="leaflet-measure-tooltip-total">' + totalRound + measureUnit + '</div>';
+		if (differenceRound > 0 && totalRound != differenceRound) {
+			text += '<div class="leaflet-measure-tooltip-difference">(+' + differenceRound + measureUnit + ')</div>';
 		}
 
 		this._tooltip._icon.innerHTML = text;
-	},
-
-	_round: function(val) {
-		return Math.round((val / 1852) * 10) / 10;
 	},
 
 	_onKeyDown: function (e) {
