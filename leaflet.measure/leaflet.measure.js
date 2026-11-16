@@ -75,7 +75,8 @@ L.Control.Measure = L.Control.extend({
 			.on(this._map, 'click', this._mouseClick, this)
 			.on(this._map, 'dblclick', this._finishPath, this)
 			.on(document, 'keydown', this._onKeyDown, this);
-      
+
+
 		this._map.fire('measure:measurestart', { layerType: this.type });
 
 		if(!this._layerPaint) {
@@ -140,6 +141,11 @@ L.Control.Measure = L.Control.extend({
 	},
 
 	_mouseClick: function(e) {
+		if (this._ignoreNextClick) {
+			this._ignoreNextClick = false;
+			return;
+		}
+
 		// Skip if no coordinates
 		if(!e.latlng) {
 			return;
@@ -201,6 +207,9 @@ L.Control.Measure = L.Control.extend({
 		if (!this._layerPaint) {
 			return;
 		}
+		// Browsers emit the second click of a double-click after the dblclick
+		// event. Ignore that click so it cannot seed the next path.
+		this._ignoreNextClick = true;
 
 		// Remove the last end marker as well as the last (moving tooltip)
 		if(this._lastCircle) {
