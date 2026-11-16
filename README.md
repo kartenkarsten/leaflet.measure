@@ -24,7 +24,7 @@ Initialise control
 ```
 	var measureControl = new L.Control.Measure({
 		position: 'topleft',
-		measureUnit: 'km'
+		measureUnit: 'km',
 		measureUnitPrecision: 1
 	});
 	measureControl.addTo(map);

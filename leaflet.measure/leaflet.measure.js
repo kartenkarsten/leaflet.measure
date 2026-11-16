@@ -22,7 +22,7 @@ L.Control.Measure = L.Control.extend({
 			//this._startMeasuring();
 		}
 
-		for (index = 0; index < latLngs.length; ++index) {
+		for (var index = 0; index < latLngs.length; ++index) {
 			var e = {latlng: latLngs[index]};
 			this._mouseClick(e);
 		}
@@ -94,7 +94,7 @@ L.Control.Measure = L.Control.extend({
 			.off(document, 'keydown', this._onKeyDown, this)
 			.off(this._map, 'mousemove', this._mouseMove, this)
 			.off(this._map, 'click', this._mouseClick, this)
-			.off(this._map, 'dblclick', this._mouseClick, this);
+			.off(this._map, 'dblclick', this._finishPath, this);
 
     	this._map.fire('measure:measurestop', { layerType: this.type });
 
@@ -198,6 +198,10 @@ L.Control.Measure = L.Control.extend({
 	},
 
 	_finishPath: function() {
+		if (!this._layerPaint) {
+			return;
+		}
+
 		// Remove the last end marker as well as the last (moving tooltip)
 		if(this._lastCircle) {
 			this._layerPaint.removeLayer(this._lastCircle);
@@ -209,7 +213,9 @@ L.Control.Measure = L.Control.extend({
 			this._layerPaint.removeLayer(this._layerPaintPathTemp);
 		}
 
-		this._map.fire('measure:finishedpath', { layerType: this.type , points: this._points, measureUnit: this.options.measureUnit});
+		if (this._points && this._points.length) {
+			this._map.fire('measure:finishedpath', { layerType: this.type , points: this._points, measureUnit: this.options.measureUnit});
+		}
 
 		//clear _points
 		if (this._points) {
@@ -273,8 +279,7 @@ L.Control.Measure = L.Control.extend({
 				difference	/=  1000;
 				break;
 			case "m":
-				total /=1;
-				difference != 1;
+				// Values are already in meters.
 				break;
 			default:
 				console.error("Unit: "+measureUnit+" is not supportet by Leaflet.Measure");

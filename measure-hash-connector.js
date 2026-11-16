@@ -18,20 +18,30 @@ L.MeasureControlConnector.formatHash = function(path, precision) {
 };
 
 L.MeasureControlConnector.parseHash = function(data) {
-	console.log("parse hash part");
+	if (typeof data !== 'string' || !data) {
+		return [];
+	}
 
 	var rawPaths = data.split("|");
-	var paths = new Array(rawPaths.length); 
+	var paths = [];
 	for (var i=0; i<rawPaths.length; i++){
 		// parse path latlng;latlng;...
 		var rawCoordinates = rawPaths[i].split(";");
-		var lonLatArray = new Array(rawCoordinates.length);
+		var lonLatArray = [];
 		for (var j=0; j<rawCoordinates.length; j++) {
-			//parse Cordinate lat,lon
+			// Coordinates are serialized as latitude,longitude.
 			var point = String(rawCoordinates[j]).split(",");
-			lonLatArray[j] = new L.LatLng(point[0],point[1]);
+			if (point.length !== 2 || point[0].trim() === '' || point[1].trim() === '') {
+				return [];
+			}
+			var lat = Number(point[0]);
+			var lng = Number(point[1]);
+			if (!isFinite(lat) || !isFinite(lng) || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
+				return [];
+			}
+			lonLatArray.push(new L.LatLng(lat, lng));
 		}
-		paths[i] = {points: lonLatArray};
+		paths.push({points: lonLatArray});
 	};
 	return paths;
 };
@@ -90,30 +100,34 @@ L.MeasureControlConnector.prototype = {
 	applyHash: function(hash) {
 		if (hash == "") return;
 		var paths = this.parseHash(hash);
+		if (!paths.length) return;
 		if (this.partStrings.length==0){
-			this.partStrings.push(hash.split('|'));
+			this.partStrings = hash.split('|');
 		}
 		this.applingHash = true;
-		//apply points
-		this.measure.clearLines();
-		for (var i=0; i<paths.length;i++) {
-			this.measure.displayLine(paths[i].points);
+		try {
+			//apply points
+			this.measure.clearLines();
+			for (var i=0; i<paths.length;i++) {
+				this.measure.displayLine(paths[i].points);
+			}
+		} finally {
+			this.applingHash = false;
 		}
-		this.applingHash = false;
 	},
 
 
 	isListening: false,
 	startListening: function() {
-		map.on('measure:finishedpath', this.onFinishedPath, this);
-		map.on('measure:measurestart', this.onMeasureStart, this);
-		map.on('measure:measurestop', this.onMeasureStop, this);
+		this.map.on('measure:finishedpath', this.onFinishedPath, this);
+		this.map.on('measure:measurestart', this.onMeasureStart, this);
+		this.map.on('measure:measurestop', this.onMeasureStop, this);
 		this.isListening = true;
 	},
 	stopListening: function() {
-		map.off('measure:finishedpath', this.onFinishedPath, this);
-		map.off('measure:measurestart', this.onMeasureStart, this);
-		map.off('measure:measurestop', this.onMeasureStop, this);
+		this.map.off('measure:finishedpath', this.onFinishedPath, this);
+		this.map.off('measure:measurestart', this.onMeasureStart, this);
+		this.map.off('measure:measurestop', this.onMeasureStop, this);
 		this.isListening = false;
 	}
 };
