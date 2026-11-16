@@ -69,11 +69,10 @@ L.Control.Measure = L.Control.extend({
 
 		this._doubleClickZoom = this._map.doubleClickZoom.enabled();
 		this._map.doubleClickZoom.disable();
-
 		L.DomEvent
 			.on(this._map, 'mousemove', this._mouseMove, this)
 			.on(this._map, 'click', this._mouseClick, this)
-			.on(this._map, 'dblclick', this._finishPath, this)
+			.on(this._map, 'dblclick', this._onDoubleClick, this)
 			.on(document, 'keydown', this._onKeyDown, this);
 
 
@@ -95,7 +94,7 @@ L.Control.Measure = L.Control.extend({
 			.off(document, 'keydown', this._onKeyDown, this)
 			.off(this._map, 'mousemove', this._mouseMove, this)
 			.off(this._map, 'click', this._mouseClick, this)
-			.off(this._map, 'dblclick', this._finishPath, this);
+			.off(this._map, 'dblclick', this._onDoubleClick, this);
 
     	this._map.fire('measure:measurestop', { layerType: this.type });
 
@@ -141,11 +140,6 @@ L.Control.Measure = L.Control.extend({
 	},
 
 	_mouseClick: function(e) {
-		if (this._ignoreNextClick) {
-			this._ignoreNextClick = false;
-			return;
-		}
-
 		// Skip if no coordinates
 		if(!e.latlng) {
 			return;
@@ -207,17 +201,6 @@ L.Control.Measure = L.Control.extend({
 		if (!this._layerPaint) {
 			return;
 		}
-		// Browsers emit the second click of a double-click after the dblclick
-		// event. Ignore that click so it cannot seed the next path.
-		this._ignoreNextClick = true;
-		if (this._ignoreNextClickTimer) {
-			window.clearTimeout(this._ignoreNextClickTimer);
-		}
-		var control = this;
-		this._ignoreNextClickTimer = window.setTimeout(function() {
-			control._ignoreNextClick = false;
-			control._ignoreNextClickTimer = null;
-		}, 400);
 
 		// Remove the last end marker as well as the last (moving tooltip)
 		if(this._lastCircle) {
@@ -238,9 +221,17 @@ L.Control.Measure = L.Control.extend({
 		if (this._points) {
 			this._points.length=0;
 		}
-
 		// Reset everything
 		this._restartPath();
+	},
+
+	_onDoubleClick: function(e) {
+		// Leaflet fires two click events before dblclick. Undo the second point
+		// that was added by that gesture before completing the path.
+		if (this._points && this._points.length > 1) {
+			this._points.pop();
+		}
+		this._finishPath(e);
 	},
 
 	_restartPath: function() {

@@ -58,6 +58,17 @@ L.MeasureControlConnector.prototype = {
 	formatHash: L.MeasureControlConnector.formatHash,
 	parseHash: L.MeasureControlConnector.parseHash,
 
+	_setHashPart: function(data) {
+		if (!this.storage) {
+			return;
+		}
+		this.storage.updateHashPart({idx:this.idx,data:data});
+		// HashComponent updates location.hash but not its cached parts.
+		if (this.storage.lastHashParts) {
+			this.storage.lastHashParts[this.idx] = data;
+		}
+	},
+
 	init: function(map, storage, measure) {
 		this.map = map;
 		this.storage = storage;
@@ -83,27 +94,21 @@ L.MeasureControlConnector.prototype = {
 		this.partStrings.push(part);
 		var dataString = this.partStrings.join("|");
 
-		if (this.storage) {
-			this.storage.updateHashPart({idx:this.idx,data:dataString});
-		}
+		this._setHashPart(dataString);
 	},
 
 	onMeasureStart: function(e) {
 	},
 	onMeasureStop: function(e) {
 		this.partStrings= new Array();
-		if (this.storage) {
-			this.storage.updateHashPart({idx:this.idx,data:""});
-		}
+		this._setHashPart("");
 	},
 
 	applyHash: function(hash) {
 		if (hash == "") return;
 		var paths = this.parseHash(hash);
 		if (!paths.length) return;
-		if (this.partStrings.length==0){
-			this.partStrings = hash.split('|');
-		}
+		this.partStrings = hash.split('|');
 		this.applingHash = true;
 		try {
 			//apply points
@@ -115,7 +120,6 @@ L.MeasureControlConnector.prototype = {
 			this.applingHash = false;
 		}
 	},
-
 
 	isListening: false,
 	startListening: function() {
