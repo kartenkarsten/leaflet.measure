@@ -210,6 +210,14 @@ L.Control.Measure = L.Control.extend({
 		// Browsers emit the second click of a double-click after the dblclick
 		// event. Ignore that click so it cannot seed the next path.
 		this._ignoreNextClick = true;
+		if (this._ignoreNextClickTimer) {
+			window.clearTimeout(this._ignoreNextClickTimer);
+		}
+		var control = this;
+		this._ignoreNextClickTimer = window.setTimeout(function() {
+			control._ignoreNextClick = false;
+			control._ignoreNextClickTimer = null;
+		}, 400);
 
 		// Remove the last end marker as well as the last (moving tooltip)
 		if(this._lastCircle) {
